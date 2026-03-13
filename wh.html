@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SFS Issue Write-Up Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: #fff;
+      padding: 28px 40px 24px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      box-shadow: 0 3px 12px rgba(0,0,0,.25);
+    }
+    header .logo-mark {
+      width: 44px; height: 44px;
+      background: #e94560;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 900; color: #fff; flex-shrink: 0;
+    }
+    header .header-text h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: .3px; }
+    header .header-text p  { font-size: .82rem; color: #a8b8d8; margin-top: 3px; }
+
+    main {
+      max-width: 900px;
+      margin: 36px auto 60px;
+      padding: 0 20px;
+    }
+
+    .input-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 32px 36px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.07);
+      margin-bottom: 28px;
+    }
+    .input-card label {
+      display: block;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 6px;
+    }
+    .helper-text {
+      font-size: .83rem;
+      color: #6b7a99;
+      margin-bottom: 14px;
+      line-height: 1.55;
+    }
+    textarea {
+      width: 100%;
+      min-height: 170px;
+      border: 1.5px solid #d0d7e6;
+      border-radius: 9px;
+      padding: 14px 16px;
+      font-size: .95rem;
+      color: #1a1a2e;
+      resize: vertical;
+      transition: border-color .2s, box-shadow .2s;
+      line-height: 1.6;
+      background: #fafbfd;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #0f3460;
+      box-shadow: 0 0 0 3px rgba(15,52,96,.12);
+      background: #fff;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      font-size: .92rem;
+      font-weight: 600;
+      padding: 11px 26px;
+      transition: background .2s, transform .1s, box-shadow .2s;
+    }
+    button:active { transform: translateY(1px); }
+
+    .btn-primary {
+      background: #0f3460;
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(15,52,96,.25);
+    }
+    .btn-primary:hover  { background: #163f78; box-shadow: 0 4px 14px rgba(15,52,96,.35); }
+    .btn-primary:disabled { background: #8fa4c2; cursor: not-allowed; box-shadow: none; }
+
+    .btn-secondary {
+      background: #f0f3f8;
+      color: #1a1a2e;
+      border: 1.5px solid #d0d7e6;
+    }
+    .btn-secondary:hover { background: #e3e9f3; }
+
+    .btn-copy {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1.5px solid #a5d6a7;
+    }
+    .btn-copy:hover       { background: #d4edda; }
+    .btn-copy.copied      { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+
+    .loader-wrap {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      margin-top: 24px;
+      color: #0f3460;
+      font-weight: 600;
+      font-size: .92rem;
+    }
+    .loader-wrap.active { display: flex; }
+    .spinner {
+      width: 22px; height: 22px;
+      border: 3px solid #d0d7e6;
+      border-top-color: #0f3460;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #output-area { display: none; }
+
+    .output-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 32px 36px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.07);
+      margin-bottom: 20px;
+    }
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #f0f3f8;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .output-title { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; }
+
+    .section-block {
+      margin-bottom: 30px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid #f0f3f8;
+    }
+    .section-block:last-child {
+      margin-bottom: 0; padding-bottom: 0; border-bottom: none;
+    }
+    .section-block h2 {
+      font-size: .92rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: #0f3460;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .section-icon {
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+    .icon-class  { background: #e0f2f1; }
+    .icon-desc   { background: #e8edf8; }
+    .icon-impact { background: #fff3e0; }
+    .icon-root   { background: #fce4ec; }
+    .icon-map    { background: #e8f5e9; }
+    .icon-close  { background: #f3e5f5; }
+
+    /* ── Section content typography ── */
+    .section-content {
+      font-size: .93rem;
+      line-height: 1.75;
+      color: #2d3557;
+    }
+    .section-content p {
+      margin-bottom: 10px;
+    }
+    .section-content p:last-child { margin-bottom: 0; }
+    .section-content ul {
+      margin: 4px 0 10px 20px;
+    }
+    .section-content li { margin-bottom: 6px; }
+
+    /* MAP step rows */
+    .map-step {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      align-items: flex-start;
+    }
+    .map-step-num {
+      background: #0f3460;
+      color: #fff;
+      border-radius: 50%;
+      width: 24px; height: 24px;
+      min-width: 24px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700;
+      margin-top: 1px;
+    }
+    .map-step-text { flex: 1; }
+
+    /* Inline tags */
+    .tbd, .confirm-tag {
+      display: inline-block;
+      background: #e0f2f1;
+      color: #00695c;
+      border: 1px solid #80cbc4;
+      border-radius: 4px;
+      font-size: .76rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      margin-left: 4px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    /* Rating badge */
+    .rating-badge {
+      display: inline-block;
+      border-radius: 5px;
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 3px 12px;
+    }
+    .rating-vh   { background: #b71c1c; color: #fff; }
+    .rating-high { background: #e53935; color: #fff; }
+    .rating-mod  { background: #f57c00; color: #fff; }
+    .rating-low  { background: #0288d1; color: #fff; }
+    .rating-vl   { background: #388e3c; color: #fff; }
+    .rating-tbd  { background: #9e9e9e; color: #fff; }
+
+    /* Pending Assessment callout */
+    .pending-callout {
+      background: #fff8e1;
+      border-left: 4px solid #f9a825;
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin-top: 12px;
+      font-size: .85rem;
+      color: #5d4037;
+      line-height: 1.55;
+    }
+    .pending-callout strong { color: #e65100; }
+
+    /* Meta info row */
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 24px;
+      background: #f8f9fc;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      font-size: .84rem;
+      color: #4a5568;
+    }
+    .meta-row span strong { color: #1a1a2e; }
+
+    /* Closure bullet styling */
+    .closure-list {
+      list-style: none;
+      margin: 0; padding: 0;
+    }
+    .closure-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: .93rem;
+      line-height: 1.65;
+      color: #2d3557;
+    }
+    .closure-list li::before {
+      content: "\2713";
+      color: #2e7d32;
+      font-weight: 800;
+      font-size: .9rem;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Disclaimer */
+    .disclaimer-card {
+      background: #fafbfd;
+      border: 1.5px solid #d0d7e6;
+      border-left: 5px solid #0f3460;
+      border-radius: 10px;
+      padding: 18px 22px;
+      font-size: .83rem;
+      color: #4a5568;
+      line-height: 1.7;
+    }
+    .disclaimer-card strong { color: #1a1a2e; }
+
+    .error-msg {
+      display: none;
+      background: #fff5f5;
+      border: 1.5px solid #fc8181;
+      border-radius: 9px;
+      padding: 14px 18px;
+      color: #c53030;
+      font-size: .88rem;
+      margin-top: 16px;
+    }
+    .error-msg.active { display: block; }
+
+    .kbd-hint {
+      font-size: .78rem;
+      color: #9aa5bc;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 20px; }
+      .input-card, .output-card { padding: 22px 18px; }
+      main { margin: 20px auto 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">S</div>
+  <div class="header-text">
+    <h1>SFS Issue Write-Up Generator</h1>
+    <p>Enterprise Risk Management · Square Financial Services</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Input Card ── -->
+  <div class="input-card">
+    <label for="situation-input">Describe the situation / potential issue</label>
+    <p class="helper-text">
+      Include what happened, when and where it occurred, who or what is impacted,
+      and any known root cause or actions already taken.
+    </p>
+    <textarea
+      id="situation-input"
+      placeholder=""
+    ></textarea>
+    <div class="btn-row">
+      <button class="btn-primary" id="generate-btn" onclick="generateWriteUp()">
+        ✦ Generate Draft Write-Up
+      </button>
+      <button class="btn-secondary" onclick="clearAll()">Clear</button>
+      <button class="btn-copy" id="copy-btn" style="display:none" onclick="copyOutput()">
+        ⎘ Copy to Clipboard
+      </button>
+    </div>
+    <div class="loader-wrap" id="loader">
+      <div class="spinner"></div>
+      <span>Generating draft write-up…</span>
+    </div>
+    <div class="error-msg" id="error-msg"></div>
+    <p class="kbd-hint">Tip: Press Ctrl + Enter to generate.</p>
+  </div>
+
+  <!-- ── Output Area ── -->
+  <div id="output-area">
+    <div class="output-card" id="output-card">
+
+      <div class="output-header">
+        <div class="output-title">📄 Draft Issue Write-Up</div>
+        <div id="rating-display"></div>
+      </div>
+
+      <!-- 0 -->
+      <div class="section-block">
+        <h2><span class="section-icon icon-class">🏷️</span>Issue Classification</h2>
+        <div class="section-content" id="content-classification"></div>
+      </div>
+
+      <!-- 1 -->
+      <div class="section-block">
+        <h2><span class="section-icon icon-desc">📋</span>Issue Description</h2>
+        <div class="section-content" id="content-desc"></div>
+      </div>
+
+      <!-- 2 -->
+      <div class="section-block">
+        <h2><span class="section-icon icon-impact">⚠️</span>Impact Analysis</h2>
+        <div class="section-content" id="content-impact"></div>
+      </div>
+
+      <!-- 3 -->
+      <div class="section-block">
+        <h2><span class="section-icon icon-root">🔍</span>Root Cause</h2>
+        <div class="section-content" id="content-root"></div>
+      </div>
+
+      <!-- 4 -->
+      <div class="section-block">
+        <h2><span class="section-icon icon-map">🗂️</span>Management Action Plan (MAP)</h2>
+        <div class="section-content" id="content-map"></div>
+      </div>
+
+      <!-- 5 -->
+      <div class="section-block">
+        <h2><span class="section-icon icon-close">✅</span>Closure Evidence</h2>
+        <div class="section-content" id="content-close"></div>
+      </div>
+
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="disclaimer-card">
+      <strong>Disclaimer:</strong> This is a draft write-up generated to help create a more complete record.
+      It is not a final write-up or final determination.<br><br>
+      All details must be reviewed and confirmed by the appropriate stakeholders for accuracy and
+      completeness before submission.<br><br>
+      When ready to submit, navigate to <strong>Go/SFSIssue</strong> and input the necessary details.<br><br>
+      If the output includes <strong>"Suggested"</strong>, <strong>"TBD"</strong>, or <strong>"Confirm"</strong>,
+      it usually means more information is needed — please add details to your description and
+      re-run the generator. Or use the <strong>SFS Issue &amp; Incident Classifier</strong> to double check if it is an issue.<br><br>
+      If you have questions, the <strong>SFS ERM Team</strong> is available to support.
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCRIPT
+═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tag helpers
+// ─────────────────────────────────────────────────────────────────────────────
+const TBD     = (label)  => `<span class="tbd">Suggested${label ? ': ' + label : ''}</span>`;
+const CONFIRM = (label)  => `<span class="confirm-tag">Suggested: ${label}</span>`;
+const P       = (html)   => `<p>${html}</p>`;
+const UL      = (items)  => '<ul>' + items.map(i => `<li>${i}</li>`).join('') + '</ul>';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Text analysis helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function lc(text) { return text.toLowerCase(); }
+
+/** Return true if any of the patterns match the lowercased text */
+function any(text, patterns) {
+  return patterns.some(p => (typeof p === 'string' ? lc(text).includes(p) : p.test(lc(text))));
+}
+
+function extractDate(text) {
+  const patterns = [
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s*\d{4}/gi,
+    /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g,
+    /\b(Q[1-4]\s+\d{4})\b/gi,
+    /\b(early|mid|late)\s+(january|february|march|april|may|june|july|august|september|october|november|december)[\s,]+\d{4}/gi,
+    /\b(last week|last month|last quarter|recently|this week)\b/gi,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m && m[0]) return m[0];
+  }
+  return null;
+}
+
+function extractPopulation(text) {
+  // Look for explicit numbers near customer/account/user/SSN context
+  const patterns = [
+    /(\d[\d,]*)\s*(customers?|accounts?|users?|ssns?|individuals?|people)/gi,
+    /(small number|limited number|subset|handful|few)\s+of\s+(customers?|accounts?|users?|ssns?)/gi,
+    /(\d[\d,]*)\s*(affected|impacted)/gi,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m && m[0]) return m[0];
+  }
+  return null;
+}
+
+function detectSourceChannel(text) {
+  const t = lc(text);
+  if (/regulator|mra|mrba|exam|supervisory|fdic|occ|\bfed\b/.test(t)) return 'Regulatory Finding';
+  if (/\baudit\b/.test(t))                                              return 'Internal/External Audit';
+  if (/gcmt|compliance monitoring|independent test/.test(t))           return 'Independent Testing (GCMT)';
+  if (/2lod|erm team|compliance team|second line/.test(t))             return '2LOD Identified';
+  return 'Business Self-Identified';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Semantic domain detection  — drives context-aware prose
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DOMAINS = {
+  lending:     ['borrow', 'loan', 'credit', 'origination', 'underwriting', 'repayment', 'disbursement'],
+  marketing:   ['offer', 'invitation', 'invite', 'campaign', 'notification', 'marketing', 'promotion'],
+  identity:    ['ssn', 'social security', 'kyc', 'identity', 'verification', 'tax id'],
+  multiAccount:['multiple accounts', 'multiple cash app accounts', 'two or more accounts', 'linked account', 'duplicate account', '2+ account', 'multiple active', 'more than one account', 'population of accounts', 'population of cash app accounts'],
+  payment:     ['payment', 'transaction', 'transfer', 'fund', 'ach', 'disbursement'],
+  access:      ['access', 'permission', 'role', 'login', 'auth', 'unauthorized'],
+  data:        ['data', 'record', 'file', 'field', 'database', 'report', 'extract'],
+  policy:      ['policy', 'procedure', 'requirement', 'standard', 'rule', 'guideline'],
+  system:      ['config', 'configuration', 'system', 'software', 'platform', 'tool', 'code', 'bug', 'deploy', 'pipeline'],
+  control:     ['control', 'gap', 'deficiency', 'enforcement', 'restriction', 'logic', 'edge case'],
+  customer:    ['customer', 'user', 'account holder', 'client', 'member'],
+  remediation: ['fix', 'patch', 'deploy', 'update', 'remedia', 'correct', 'resolve', 'suppress', 'complete', 'completed'],
+  edgeCase:    ['edge case', 'loophole', 'loop hole', 'workaround', 'bypass', 'circumvent', 'change ssn', 'change the ssn', 'ssn change'],
+  legacyPop:   ['before the policy', 'pre-existing', 'legacy', 'grandfathered', 'prior to', 'before the control', 'opened before', 'obtained before', 'before it was'],
+  crossProduct:['cross-product', 'cross product', 'elsewhere within', 'overdue', 'delinquent', 'past due', 'loan performance'],
+  accountFreeze:['frozen', 'freeze', 'suspended', 'hold', 'temporarily restricted', 'locked out', 'account freeze'],
+  fee:          ['late fee', 'penalty', 'additional interest', 'finance charge', 'interest accrual', 'incur a', 'assessed fee'],
+  complaint:    ['complaint', 'unfair', 'conduct risk', 'customer harm', 'dispute', 'grievance'],
+};
+
+function detect(text) {
+  const result = {};
+  for (const [key, terms] of Object.entries(DOMAINS)) {
+    result[key] = terms.some(t => lc(text).includes(t));
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Action extraction
+// ─────────────────────────────────────────────────────────────────────────────
+
+function extractCompletedActions(text) {
+  const t = lc(text);
+  const actions = [];
+  if (/work.{0,20}(is\s+)?complete|fix.{0,20}(is\s+)?complete|has been (fixed|resolved|deployed|completed|suppressed)/.test(t))
+    actions.push('Initial remediation work has been completed per the description provided.');
+  if (/suppress/.test(t))
+    actions.push('Suppression logic has reportedly been applied to prevent recurrence.');
+  if (/validat|test/.test(t))
+    actions.push('Preliminary validation or testing may have been initiated.');
+  return actions;
+}
+
+function extractPendingActions(text) {
+  const t = lc(text);
+  const pending = [];
+  if (/additional work|still needed|additional remedia/.test(t))
+    pending.push('Additional remediation work is still required per the description provided.');
+  if (/edge case|loop.?hole|bypass|circumvent/.test(t))
+    pending.push('Edge-case or control gap remediation is pending.');
+  if (/small number|limited population|multiple borrow|multiple loan/.test(t))
+    pending.push('Remediation of a limited population of affected accounts or records is in progress.');
+  return pending;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rating suggestion
+// ─────────────────────────────────────────────────────────────────────────────
+
+function suggestRating(text, d) {
+  const t = lc(text);
+  if (/mrba|catastrophic|more than \$50m|20%.*customer/.test(t))     return 'Very High';
+  if (/mra|regulator|audit finding|significant|critical|high risk/.test(t)) return 'High';
+  // Heuristic: control gap with limited population → Moderate
+  if (d.marketing && d.control && (d.multiAccount || d.identity))    return 'Moderate';
+  if (d.lending && d.identity && d.multiAccount && d.control)        return 'Moderate';
+  if (d.lending && d.accountFreeze && (d.fee || d.complaint))        return 'Moderate';
+  if (/moderate|some customers|potential fine/.test(t))              return 'Moderate';
+  if (/low impact|limited|administrative|procedural|minor/.test(t))  return 'Low';
+  if (/negligible|minimal|very few/.test(t))                         return 'Very Low';
+  return null;
+}
+
+function buildMissingRatingDetails(text, d) {
+  const t = lc(text);
+  const missing = [];
+  // Check what key rating signals are absent
+  if (!d.customer && !d.lending && !d.payment)
+    missing.push('The <strong>product area or business domain</strong> affected (e.g., lending, payments, customer accounts).');
+  if (!/\d+\s*(customer|account|record|ssn|user|loan|transaction)/i.test(text) && !d.multiAccount)
+    missing.push('The <strong>estimated number of affected customers, accounts, or records</strong> (e.g., "approximately 500 customers").');
+  if (!/\$[\d,.]+|financial (impact|loss|exposure)|dollar|revenue|refund|write.?off/i.test(text))
+    missing.push('Any known or estimated <strong>financial impact</strong> (e.g., dollar amount of losses, refunds, or exposure).');
+  if (!/(regulator|audit|exam|consent order|mra|mrba|finding|enforcement)/i.test(t))
+    missing.push('Whether the issue has any <strong>regulatory, audit, or examination implications</strong>.');
+  if (!/(root cause|caused by|due to|because|result of|failure in)/i.test(t))
+    missing.push('The <strong>root cause or contributing factors</strong> behind the issue.');
+  if (!d.remediation)
+    missing.push('The <strong>current status of remediation</strong> (e.g., whether a fix has been deployed, is in progress, or is pending).');
+  // Always provide at least one item
+  if (missing.length === 0)
+    missing.push('Additional context on the <strong>severity, scope, or urgency</strong> of the issue to help determine an appropriate rating.');
+  return missing;
+}
+
+function ratingClass(r) {
+  if (!r) return 'rating-tbd';
+  const m = lc(r);
+  if (m.includes('very high')) return 'rating-vh';
+  if (m.includes('high'))      return 'rating-high';
+  if (m.includes('moderate'))  return 'rating-mod';
+  if (m.includes('very low'))  return 'rating-vl';
+  if (m.includes('low'))       return 'rating-low';
+  return 'rating-tbd';
+}
+
+function mapTimeline(r) {
+  if (!r) return null;
+  const m = lc(r);
+  if (m.includes('very high') || m.includes('high')) return { action: 30,  remediation: 180 };
+  if (m.includes('moderate'))                        return { action: 60,  remediation: 270 };
+  return                                                    { action: 90,  remediation: 365 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Risk classification helpers (per ERM Policy Appendix B)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RISK_DEFINITIONS = {
+  primary: {
+    'Operational': 'Risk arising from inadequate or failed internal processes or systems, human errors or misconduct, or adverse external events.',
+    'Credit': 'Risk arising from an obligor\'s failure to meet the terms of any contract with the Bank or otherwise perform as agreed.',
+    'Regulatory and Compliance': 'Risk arising from noncompliance with relevant laws, regulations, or internal policies.',
+    'Strategic': 'Risk arising from adverse business decisions, poor implementation of business decisions, or lack of responsiveness to changes in the banking industry and operating environment.',
+    'Liquidity': 'Risk arising from an inability to meet obligations when they come due.',
+    'Market/Interest Rate': 'Risk arising from movements in interest rates and pricing.',
+  },
+  secondary: {
+    'Information Technology': 'Risk arising from the failure of, or insufficiency in, information technology (e.g., a system outage).',
+    'Data Management': 'Risk arising from incomplete or inaccurate data leading to bad decisions or missed opportunities.',
+    'Information Security': 'Risk arising from intentional or accidental unauthorized access, sharing, removal, tampering, or disposal of company and customer data or records.',
+    'Transactional': 'Risk arising from operational errors in processing payments and transactions.',
+    'Business Disruption': 'Risk arising from a significant disruption in operations due to natural disaster, external technology outage, or other types of external events.',
+    'Human Capital': 'Risk arising from high turnover, inadequate or improper staffing levels, departure/unavailability of key personnel, or inadequate training.',
+    'Fraud': 'Risk arising from misrepresentation or concealment of information material to a transaction with the intent to deceive another.',
+    'Model Risk': 'Risk arising from decisions based on incorrect or misused model assumptions, inputs, outputs, and reports.',
+    'Regulatory Reporting': 'Risk arising from regulatory reporting or reconciliation errors.',
+    'Third-Party': 'Risk arising from inappropriate third-party selection, overreliance on a third party, poor third-party oversight, or failure of third parties to deliver services as agreed.',
+    'Compliance': 'Risk arising from violations of laws or regulations, or from nonconformance with prescribed practices, internal bank policies and procedures, or ethical standards.',
+    'Credit': 'Risk arising from an obligor\'s failure to meet the terms of any contract with the Bank or otherwise perform as agreed.',
+    'Legal': 'Risk arising from unenforceable contracts, lawsuits, or adverse judgments.',
+    'AML CFT': 'Risk arising from the use of bank services and facilities for money laundering, terrorist financing, or bribery.',
+  }
+};
+
+const ROOT_CAUSE_OPTIONS = [
+  'Control deficiencies',
+  'Process gaps',
+  'Data error',
+  'Failure to adhere to policy or procedure',
+  'Failure to adhere to remediation plan',
+  'Human error',
+  'Policy deficiency',
+  'Risk tolerance limit breaches',
+  'System/tool inadequacy',
+  'Adverse Events',
+  'Other',
+];
+
+function suggestRiskCategories(text, d) {
+  const t = lc(text);
+  let primary = null;
+  let secondary = null;
+
+  if (d.lending && d.marketing && d.identity) {
+    primary = 'Operational';
+    secondary = 'Information Technology';
+  } else if (d.lending && d.identity && d.multiAccount) {
+    primary = 'Operational';
+    secondary = 'Information Technology';
+  } else if (d.marketing && d.control) {
+    primary = 'Operational';
+    secondary = 'Information Technology';
+  } else if (d.lending && d.accountFreeze) {
+    primary = 'Operational';
+    secondary = 'Transactional';
+  } else if (d.system && d.control) {
+    primary = 'Operational';
+    secondary = 'Information Technology';
+  } else if (d.access) {
+    primary = 'Operational';
+    secondary = 'Information Security';
+  } else if (d.data) {
+    primary = 'Operational';
+    secondary = 'Data Management';
+  } else if (d.policy && !d.lending) {
+    primary = 'Regulatory and Compliance';
+    secondary = 'Compliance';
+  } else if (d.lending && d.control) {
+    primary = 'Operational';
+    secondary = 'Transactional';
+  } else if (d.lending) {
+    primary = 'Credit';
+    secondary = 'Credit';
+  } else if (d.control) {
+    primary = 'Operational';
+    secondary = 'Information Technology';
+  } else {
+    primary = null;
+    secondary = null;
+  }
+
+  return { primary, secondary };
+}
+
+function suggestRootCauseCategory(text, d) {
+  const t = lc(text);
+
+  // Specific domain matches
+  if (d.lending && d.marketing && d.identity)   return 'Control deficiencies';
+  if (d.lending && d.identity && d.multiAccount) return 'Control deficiencies';
+  if (d.lending && d.accountFreeze)              return 'Process gaps';
+  if (d.marketing && d.control)                  return 'Control deficiencies';
+  if (d.edgeCase && d.control)                   return 'Control deficiencies';
+
+  // Keyword-driven matches
+  if (/control\s+(gap|deficien|weakness|issue)/.test(t))        return 'Control deficiencies';
+  if (/process\s+(gap|break|failure)/.test(t))                  return 'Process gaps';
+  if (/data\s+(error|quality|integrity|incorrect|inaccurate)/.test(t)) return 'Data error';
+  if (/fail(ed|ure)?\s+to\s+(adhere|follow|comply)/.test(t))   return 'Failure to adhere to policy or procedure';
+  if (/human\s+error|mistake|oversight|manual/.test(t))         return 'Human error';
+  if (/policy\s+(deficien|gap|inadequa)/.test(t))               return 'Policy deficiency';
+  if (/system.{0,20}(inadequa|insufficien|fail|bug|defect)/.test(t)) return 'System/tool inadequacy';
+  if (/breach.{0,20}(limit|tolerance|threshold)/.test(t))       return 'Risk tolerance limit breaches';
+
+  if (d.system && d.control)  return 'System/tool inadequacy';
+  if (d.policy)               return 'Failure to adhere to policy or procedure';
+  if (d.control)              return 'Control deficiencies';
+
+  return null;
+}
+
+function suggestDueDate(rating) {
+  if (!rating) return null;
+  const r = lc(rating);
+  let days;
+  if (r.includes('very high') || r.includes('high'))  days = 180;
+  else if (r.includes('moderate'))                     days = 270;
+  else                                                 days = 365;
+
+  const due = new Date();
+  due.setDate(due.getDate() + days);
+  return { date: due, days: days };
+}
+
+function formatDate(d) {
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function suggestIssueNames(text, d) {
+  let shortName = '';
+  let longName  = '';
+
+  if (d.lending && d.marketing && d.identity && d.multiAccount) {
+    shortName = 'Borrow Multi-Account Offer Invite Gap';
+    longName  = 'Borrow offer invitations sent to customers with multiple Cash App accounts per SSN despite existing SSN-level eligibility restrictions';
+  } else if (d.lending && d.identity && d.multiAccount) {
+    shortName = 'Lending Multi-Account SSN Policy Violation';
+    longName  = 'Population of accounts identified with multiple active loans or product access tied to the same SSN in violation of SSN-level eligibility policy';
+  } else if (d.lending && d.marketing && d.control && d.crossProduct) {
+    shortName = 'Borrow Cross-Product Marketing Misalignment';
+    longName  = 'Borrow marketing communications not aligned with cross-product access controls for customers with overdue loans within the Cash Lending ecosystem';
+  } else if (d.lending && d.accountFreeze) {
+    shortName = 'Borrow Account Freeze Late Fee Issue';
+    longName  = 'Borrow customers with temporarily frozen Cash App accounts unable to make loan repayments, resulting in late fees assessed during the freeze period';
+  } else if (d.marketing && d.control) {
+    shortName = 'Marketing Eligibility Control Gap';
+    longName  = 'Marketing communications sent to ineligible customers due to misalignment between invitation logic and upstream eligibility controls';
+  } else if (d.lending && d.control) {
+    shortName = 'Lending Control Gap';
+    longName  = 'Control gap identified in the lending process allowing ineligible customers to progress through a restricted product flow';
+  } else if (d.system && d.control) {
+    shortName = 'System Control Deficiency';
+    longName  = 'System or configuration issue causing existing controls to operate outside intended parameters';
+  } else if (d.access) {
+    shortName = 'Access Control Issue';
+    longName  = 'Unauthorized or unintended access to systems, data, or product features due to an access control gap';
+  } else if (d.data) {
+    shortName = 'Data Integrity Issue';
+    longName  = 'Data integrity or records issue resulting in inaccurate information used in downstream processes or customer-facing interactions';
+  } else if (d.policy) {
+    shortName = 'Policy Adherence Failure';
+    longName  = 'Failure to adhere to established policy or procedure resulting in a compliance or operational gap';
+  } else {
+    shortName = null;
+    longName  = null;
+  }
+
+  return { shortName, longName };
+}
+
+function buildClassification(text, d, rating) {
+  const html = [];
+  const names = suggestIssueNames(text, d);
+  const risk = suggestRiskCategories(text, d);
+  const rootCat = suggestRootCauseCategory(text, d);
+  const dueDateInfo = suggestDueDate(rating);
+
+  // Issue Names
+  html.push(P(`<strong>Issue Name (Short Form):</strong> ${names.shortName || CONFIRM('derive a concise 3-6 word issue title from the situation described')}`));
+  html.push(P(`<strong>Issue Name (Long Form):</strong> ${names.longName || CONFIRM('expand the short name into a detailed description that ensures clarity and comprehension')}`));
+
+  // Primary Risk
+  if (risk.primary) {
+    html.push(P(`<strong>Primary Risk Category:</strong> ${risk.primary}`));
+    if (RISK_DEFINITIONS.primary[risk.primary]) {
+      html.push(P(`<em style="color:#6b7a99;font-size:.88rem;">${RISK_DEFINITIONS.primary[risk.primary]}</em>`));
+    }
+  } else {
+    html.push(P(`<strong>Primary Risk Category:</strong> Operational ${CONFIRM('most issues involving internal process or system gaps fall under Operational risk')}`));
+  }
+
+  // Secondary Risk
+  if (risk.secondary) {
+    html.push(P(`<strong>Secondary Risk Category:</strong> ${risk.secondary}`));
+    if (RISK_DEFINITIONS.secondary[risk.secondary]) {
+      html.push(P(`<em style="color:#6b7a99;font-size:.88rem;">${RISK_DEFINITIONS.secondary[risk.secondary]}</em>`));
+    }
+  } else {
+    html.push(P(`<strong>Secondary Risk Category:</strong> ${CONFIRM('review ERM taxonomy Appendix B to select the most applicable secondary risk')}`));
+  }
+
+  // Root Cause Category
+  if (rootCat) {
+    html.push(P(`<strong>SFS ERM Root Cause Category:</strong> ${rootCat}`));
+  } else {
+    html.push(P(`<strong>SFS ERM Root Cause Category:</strong> Control deficiencies ${CONFIRM('default suggestion — review against: ' + ROOT_CAUSE_OPTIONS.join(', '))}`));
+  }
+
+  // Suggested Due Date
+  if (dueDateInfo) {
+    html.push(P(`<strong>Suggested Remediation Due Date:</strong> ${formatDate(dueDateInfo.date)} <em style="color:#6b7a99;font-size:.88rem;">(${dueDateInfo.days} calendar days from today, based on preliminary ${rating} rating)</em>`));
+  } else {
+    html.push(P(`<strong>Suggested Remediation Due Date:</strong> ${formatDate((() => { const d = new Date(); d.setDate(d.getDate() + 270); return d; })())} ${CONFIRM('defaulting to 270 days (Moderate) — adjust based on confirmed rating: 180 days (High/Very High), 270 days (Moderate), 365 days (Low/Very Low)')}`));
+  }
+
+  return html.join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Prose builders — produce clean professional sentences
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildDescription(text, d, source, dateFound, rating) {
+  const html = [];
+
+  // ── Opening summary paragraph
+  // Try to construct a meaningful one-liner from signals
+  let summaryCore = '';
+  if (d.lending && d.marketing && d.identity && d.multiAccount) {
+    summaryCore = 'Borrow offer invitations were being sent to customers who maintain two or more Cash App accounts associated with the same SSN when one of those accounts already had an active Borrow loan.';
+  } else if (d.lending && d.identity && d.multiAccount) {
+    summaryCore = 'A policy exists restricting lending product access to one account per SSN. A population of accounts has been identified that violates this policy.';
+  } else if (d.lending && d.marketing && d.control && d.crossProduct) {
+    summaryCore = 'Borrow marketing communications did not reflect existing cross-product access controls within the Cash Lending ecosystem.';
+  } else if (d.lending && d.accountFreeze) {
+    summaryCore = 'Borrow customers whose Cash App accounts were temporarily frozen due to internal policies were unable to make loan repayments during the freeze period, resulting in late fees being assessed despite the customer\'s intent and ability to repay.';
+  } else if (d.marketing && d.control) {
+    summaryCore = 'Marketing communications were being sent to customers who may have been ineligible to receive them due to a gap in the invitation logic relative to existing eligibility controls.';
+  } else if (d.lending && d.control) {
+    summaryCore = 'A control gap was identified in the lending process that may have allowed ineligible customers to receive or progress through a product flow they should have been restricted from.';
+  } else if (d.system && d.control) {
+    summaryCore = 'A system or configuration issue was identified that may have caused existing controls to operate outside of their intended parameters.';
+  } else if (d.data) {
+    summaryCore = 'A data integrity or records issue was identified that may have resulted in inaccurate information being used in downstream processes or customer-facing interactions.';
+  } else if (d.access) {
+    summaryCore = 'An access control issue was identified that may have permitted unauthorized or unintended access to systems, data, or product features.';
+  } else {
+    // Fallback: use the first sentence of user input, cleaned up
+    const firstSent = text.split(/[.!?]+/)[0].trim();
+    summaryCore = firstSent.charAt(0).toUpperCase() + firstSent.slice(1) + '.';
+  }
+  html.push(P(summaryCore));
+
+  // ── Control alignment context paragraph
+  let contextPara = '';
+  if (d.lending && d.marketing && d.identity) {
+    contextPara = 'While controls exist that prevent a customer from maintaining multiple active Borrow loans across accounts tied to the same SSN, the marketing invitation logic did not incorporate this restriction. As a result, linked accounts received Borrow offer invitations even though those accounts were ineligible to originate an additional Borrow loan.';
+  } else if (d.lending && d.identity && d.multiAccount) {
+    // Dynamically build contributing factors based on detected signals
+    const factors = [];
+    if (d.legacyPop) {
+      factors.push('<strong>Legacy Population:</strong> Certain accounts obtained product access prior to implementation of the current policy and were not remediated when the policy was introduced.');
+    }
+    if (d.edgeCase && any(text, ['change ssn', 'change the ssn', 'ssn change', 'modify the ssn', 'update the ssn', 'update their ssn'])) {
+      factors.push('<strong>SSN Change Loophole:</strong> Customers are able to change the SSN associated with their account after product access has already been granted. This allows a customer to update the SSN on an account with active access to match another account that also has access, resulting in multiple accounts tied to the same SSN.');
+    } else if (d.edgeCase) {
+      factors.push('<strong>Control Loophole:</strong> An identified edge case or loophole in the current process allows the policy to be circumvented under certain conditions.');
+    }
+    if (factors.length > 0) {
+      let contextLines = `These violations exist for ${factors.length === 1 ? 'the following reason' : factors.length + ' primary reasons'}:`;
+      factors.forEach(f => { contextLines += `</p><p style="margin:6px 0 2px 0;">${f}`; });
+      if (d.edgeCase && d.control) {
+        contextLines += '</p><p style="margin:8px 0 0 0;">There are currently no preventative controls in place to address the identified loophole.';
+      }
+      contextPara = contextLines;
+    } else {
+      contextPara = 'A population of accounts has been identified that does not conform to the current policy. The contributing factors should be investigated and documented to inform the remediation approach.';
+    }
+  } else if (d.lending && d.marketing && d.control && d.crossProduct) {
+    contextPara = 'Although cross-product eligibility controls were implemented to restrict Borrow loan access for customers with overdue loans elsewhere within the Cash Lending ecosystem, the marketing invitation logic did not incorporate this restriction. As a result, certain customers with overdue loans may have received Borrow offer notifications despite being ineligible to originate a new Borrow loan.';
+  } else if (d.lending && d.accountFreeze) {
+    contextPara = 'While account freeze procedures serve a necessary compliance and risk management purpose, the freeze process did not account for customers with active Borrow loan repayment obligations. As a result, affected customers were unable to initiate repayments, and the loan servicing process continued to assess late fees as if the customer had failed to repay voluntarily. A portion of these customers were subsequently unfrozen following internal review, confirming no permanent restriction was warranted.';
+  } else if (d.marketing && d.control) {
+    contextPara = `While upstream controls appear to exist to restrict the relevant customer population, the marketing or communications logic did not appear to fully reflect those restrictions. As a result, customers who may have been ineligible ${d.lending ? 'to receive or accept a product offer' : 'to participate in the activity'} may have received communications indicating otherwise.`;
+  } else if (d.system && d.control) {
+    contextPara = `Existing controls are designed to restrict the identified behavior; however, a ${d.system ? 'system or configuration' : 'process'} gap appears to have allowed the behavior to occur despite those controls being in place.`;
+  } else {
+    contextPara = 'The situation represents a gap between the intended behavior of existing controls or processes and the actual outcomes observed. Further review is recommended to determine the specific mechanism through which the gap manifested and the scope of its impact.';
+  }
+  html.push(P(contextPara));
+
+  // ── Status of remediation paragraph
+  const completedActions = extractCompletedActions(text);
+  const pendingActions   = extractPendingActions(text);
+  if (completedActions.length || pendingActions.length) {
+    let statusPara = '';
+    if (d.lending && d.marketing && d.identity) {
+      statusPara = 'Work has been completed to suppress Borrow offer invitations to linked accounts when an active Borrow loan exists under the same SSN. Additional remediation is required to address a limited population of SSNs with multiple active Borrow loans and to close identified edge-case control gaps.';
+    } else if (d.lending && d.identity && d.multiAccount) {
+      statusPara = 'Remediation is required to address the identified population of accounts violating the SSN-level eligibility policy and to implement preventative controls to close identified enforcement gaps.';
+    } else if (completedActions.length && pendingActions.length) {
+      statusPara = 'Initial remediation steps have been completed. Additional work remains to fully resolve the issue and address related edge cases or impacted populations.';
+    } else if (completedActions.length) {
+      statusPara = 'Remediation work has been initiated and preliminary steps have been completed. Validation is ongoing to confirm the effectiveness of the fix.';
+    } else {
+      statusPara = 'Remediation work is in progress. The current status of all remediation activities should be confirmed with the responsible team and documented.';
+    }
+    html.push(P(statusPara));
+  }
+
+  return html.join('');
+}
+
+function buildImpact(text, d, pop) {
+  const html = [];
+
+  // Opening
+  let openPara = '';
+  if (d.lending && d.marketing && d.identity) {
+    openPara = 'The impact of this issue was limited to marketing communications and control edge cases.';
+  } else if (d.lending && d.identity && d.multiAccount) {
+    openPara = 'The identified population results in violations of the SSN-level eligibility policy and exposes the following risks:';
+  } else if (d.lending && d.marketing && d.control && d.crossProduct) {
+    openPara = 'The impact of this issue was limited to marketing communications and did not override existing underwriting or eligibility controls. Customers with overdue loans were unable to successfully originate a Borrow loan due to the cross-product access controls already in place.';
+  } else if (d.lending && d.accountFreeze) {
+    openPara = 'The impact of this issue affected Borrow customers whose Cash App accounts were temporarily frozen and who incurred late fees or additional interest during the freeze period.';
+  } else if (d.marketing) {
+    openPara = 'The impact of this issue is primarily related to marketing or communications activities, with potential downstream effects on customer experience and operational controls.';
+  } else if (d.lending) {
+    openPara = 'The impact of this issue may extend to lending operations, customer eligibility decisions, and associated compliance or credit risk.';
+  } else {
+    openPara = `The impact of this issue appears to span ${d.customer ? 'customer-facing processes' : 'internal operations'}${d.control ? ' and related control effectiveness' : ''}. A full impact assessment is recommended to confirm scope across financial, operational, customer, and regulatory dimensions.`;
+  }
+  html.push(P(openPara));
+
+  // Bullet impacts
+  const bullets = [];
+  if (d.lending && d.marketing && d.identity && d.multiAccount) {
+    bullets.push('Customers with linked accounts may have received Borrow offer invitations despite being ineligible to originate an additional loan.');
+    bullets.push('Core underwriting controls prevented most duplicate loan originations.');
+    if (any(text, ['small number', 'limited', 'multiple borrow', 'multiple loan'])) {
+      bullets.push('A limited number of SSNs were identified with multiple active Borrow loans due to historical or edge-case scenarios.');
+    }
+    bullets.push('Potential impacts included customer confusion, operational inefficiencies, and limited control bypass risk.');
+  } else if (d.lending && d.identity && d.multiAccount) {
+    bullets.push('Elevated credit exposure due to multiple active loans tied to a single SSN.');
+    bullets.push('Inconsistent enforcement of underwriting or eligibility standards.');
+    if (d.edgeCase) {
+      bullets.push('Control circumvention via the identified loophole or edge case.');
+    }
+    bullets.push('Operational and compliance risk from policy misalignment.');
+    if (d.edgeCase) {
+      html.push(UL(bullets));
+      const sizeDesc = any(text, ['small', 'very small', 'limited', 'few', 'minimal']) ? 'currently small' : 'not yet fully quantified';
+      html.push(P(`The population associated with the identified loophole is ${sizeDesc}; however, the absence of preventative controls represents a structural enforcement gap.`));
+      return html.join('');
+    }
+  } else if (d.lending && d.marketing && d.control && d.crossProduct) {
+    bullets.push('Customer confusion due to receiving marketing communications despite being ineligible.');
+    bullets.push('Increased contact volume or complaints.');
+    bullets.push('Reputational or conduct risk exposure.');
+    html.push(UL(bullets));
+    html.push(P('No unauthorized loan originations occurred as a result of this issue. The underlying lending control remained effective.'));
+    return html.join('');
+  } else if (d.lending && d.accountFreeze) {
+    bullets.push('Customers were unable to initiate repayments or move funds during the account freeze period.');
+    if (d.fee) bullets.push('Late fees (e.g., $5) may have been assessed to customers who intended to repay on time.');
+    bullets.push('Customer experience and trust may be negatively impacted.');
+    if (d.complaint) bullets.push('Complaint and conduct risk exposure due to customers perceiving the fees as unfair.');
+  } else {
+    if (d.customer && d.marketing) {
+      bullets.push(`Customers may have received communications indicating eligibility for a product or offer they were not eligible to receive.`);
+    }
+    if (d.customer) {
+      bullets.push(`Customer experience may have been negatively impacted${d.lending ? ', including receipt of misleading offer communications' : ''}. Review customer complaints and feedback to assess the nature and extent of impact.`);
+    }
+    if (d.control) {
+      bullets.push('Existing controls may not have fully prevented the identified behavior in all scenarios, suggesting a potential gap in enforcement logic.');
+    }
+    if (d.edgeCase) {
+      bullets.push('Edge-case scenarios have been identified where the control gap may have allowed unintended outcomes to persist.');
+    }
+    if (d.lending) {
+      bullets.push('Loan origination or product eligibility processes may have been affected. Review origination data to confirm whether any ineligible loans were approved.');
+    }
+    if (!bullets.length) {
+      bullets.push('The impacted population — including the number of customers, accounts, or processes affected — should be quantified through data analysis.');
+      bullets.push('The nature and severity of impact across financial, operational, customer, and regulatory dimensions should be assessed as part of the issue investigation.');
+    }
+  }
+  html.push(UL(bullets));
+
+  return html.join('');
+}
+
+function buildRootCause(text, d) {
+  const html = [];
+  const rootCat = suggestRootCauseCategory(text, d);
+
+  // Category
+  let category = '';
+  if (d.lending && d.marketing && d.identity) {
+    category = 'The root cause was a control alignment gap between SSN-level Borrow restrictions and marketing invitation logic.';
+  } else if (d.lending && d.identity && d.multiAccount) {
+    category = 'The root cause is a control design and lifecycle enforcement gap at the SSN level.';
+  } else if (d.lending && d.marketing && d.control && d.crossProduct) {
+    category = 'The root cause was a control design misalignment between underwriting eligibility controls and marketing communication logic.';
+  } else if (d.lending && d.accountFreeze) {
+    category = 'The root cause was a process gap between account freeze procedures and active loan servicing obligations.';
+  } else if (d.marketing && d.control) {
+    category = 'Control design gap — marketing or communications logic did not fully reflect upstream eligibility restrictions (Process / Technology).';
+  } else if (d.system && d.control) {
+    category = 'System or configuration deficiency contributing to a control gap (Technology).';
+  } else if (d.policy) {
+    category = 'Failure to adhere to policy or procedure (Process / People).';
+  } else {
+    category = 'The root cause requires further investigation to identify the specific failure point. Based on the information provided, the issue may relate to a gap in process design, control effectiveness, or system capability.';
+  }
+  html.push(P(category));
+
+  // ERM Root Cause Category alignment note
+  if (rootCat) {
+    html.push(P(`<em style="color:#6b7a99;font-size:.88rem;">ERM Root Cause Category: <strong style="color:#0f3460;">${rootCat}</strong></em>`));
+  }
+
+  // Narrative
+  let narrative = '';
+  if (d.lending && d.marketing && d.identity && d.multiAccount) {
+    narrative = 'Although SSN-level controls existed to prevent multiple active Borrow loans, the marketing pipeline did not suppress invitations to linked accounts tied to the same SSN. Additionally, certain historical and edge-case scenarios allowed a small number of SSNs to maintain multiple active Borrow loans, indicating gaps in cross-account enforcement logic.';
+  } else if (d.lending && d.identity && d.multiAccount) {
+    let narr = 'While eligibility controls may prevent duplicate approvals at origination, there is no downstream control preventing:';
+    const gaps = [];
+    if (d.edgeCase && any(text, ['change ssn', 'change the ssn', 'ssn change', 'modify the ssn', 'update the ssn', 'update their ssn'])) {
+      gaps.push('Identity updates on accounts with active product access');
+      gaps.push('Identity updates that create duplicate eligibility at the SSN level');
+    } else if (d.edgeCase) {
+      gaps.push('The identified loophole or edge case from circumventing the intended policy restriction');
+    } else {
+      gaps.push('Account lifecycle events that result in policy violations after initial origination');
+    }
+    narr += '</p><ul style="margin:8px 0 8px 20px;">' + gaps.map((g, i) => `<li>${g}${i < gaps.length - 1 ? '; or' : '.'}</li>`).join('') + '</ul><p style="margin:8px 0;">';
+    if (d.legacyPop) {
+      narr += 'Additionally, legacy accounts that predated the current policy were not systematically remediated.';
+    } else {
+      narr += 'The full population of accounts in violation should be identified and assessed for remediation.';
+    }
+    narrative = narr;
+  } else if (d.lending && d.marketing && d.control && d.crossProduct) {
+    narrative = 'While cross-product access restrictions were implemented at the loan origination level, the marketing invitation pipeline was not updated to reflect those same eligibility constraints. This resulted in marketing communications being sent without incorporating the cross-product performance restriction.';
+  } else if (d.lending && d.accountFreeze) {
+    narrative = 'While account freeze procedures were correctly applied for compliance or risk management purposes, the process did not incorporate active Borrow loan repayment obligations. This resulted in late fees being assessed to customers whose inability to repay was caused by the freeze itself rather than an unwillingness to repay.';
+  } else if (d.marketing && d.control) {
+    narrative = 'The marketing or invitation logic did not appear to account for restrictions that existed elsewhere in the system. This represents a misalignment between eligibility controls and downstream communication processes. The specific system or pipeline involved should be identified and documented as part of the remediation effort.';
+  } else if (d.system) {
+    narrative = 'A gap in system configuration or design appears to have allowed existing controls to be bypassed or to operate outside of their intended scope. The specific system, configuration change, or technical failure involved should be documented through engineering review.';
+  } else if (d.edgeCase) {
+    narrative = 'Edge-case scenarios were identified where the standard control pathway was circumvented, either through a process gap or a gap in system enforcement logic. The specific edge case mechanism should be documented to support targeted remediation.';
+  } else {
+    narrative = 'A detailed root cause analysis should be conducted to identify the specific failure point that caused this issue and determine what must be corrected to prevent recurrence. Initial investigation should focus on the process, system, or control most directly associated with the identified gap.';
+  }
+  html.push(P(narrative));
+
+  // Characterization
+  let characterization = '';
+  if (d.lending && d.marketing && d.identity) {
+    characterization = 'This represents a control design and enforcement gap across systems rather than a failure of underwriting approval controls.';
+  } else if (d.lending && d.identity && d.multiAccount) {
+    characterization = 'This represents a control enforcement gap across account lifecycle events rather than a failure in underwriting approval logic.';
+  } else if (d.lending && d.marketing && d.control && d.crossProduct) {
+    characterization = 'This represents a control design gap in eligibility alignment across systems rather than a failure of underwriting controls.';
+  } else if (d.lending && d.accountFreeze) {
+    characterization = 'This represents a process design gap where account-level restrictions were applied without consideration of active lending product obligations.';
+  } else if (d.control) {
+    characterization = 'This issue appears to reflect a gap in control design or operating effectiveness rather than a deliberate action. Further analysis should confirm whether this is a design gap, an operational failure, or a combination of both.';
+  } else {
+    characterization = 'Based on the information provided, this issue should be characterized as either a control design gap, an operational failure, a process gap, or a combination. The characterization will inform the scope of the remediation approach.';
+  }
+  html.push(P(characterization));
+
+  return html.join('');
+}
+
+function buildMAP(text, d, rating, timeline) {
+  const html = [];
+
+  // Steps
+  const steps = buildMAPSteps(text, d);
+  const stepsHtml = steps.map((step, i) =>
+    `<div class="map-step">
+      <div class="map-step-num">${i + 1}</div>
+      <div class="map-step-text">${step}</div>
+    </div>`
+  ).join('');
+  html.push(stepsHtml);
+
+  return html.join('');
+}
+
+function buildMAPSteps(text, d) {
+  const steps = [];
+
+  // Domain-specific steps
+  if (d.lending && d.marketing && d.identity && d.multiAccount) {
+    const prod = any(text, ['borrow']) ? 'Borrow' : 'lending product';
+    const isSsnChange = any(text, ['change ssn', 'change the ssn', 'ssn change', 'modify the ssn', 'update the ssn', 'update their ssn']);
+
+    // Step 1: Fix marketing logic
+    steps.push(`Update marketing invitation logic to suppress ${prod} offer invitations for linked accounts when an active ${prod} loan exists under the same SSN.`);
+
+    // Step 2: Identify affected population
+    const scenarioList = [];
+    if (d.legacyPop) scenarioList.push('legacy');
+    if (isSsnChange) scenarioList.push('SSN-change');
+    if (!scenarioList.length) scenarioList.push('all known');
+    steps.push(`Identify and review the full population of accounts that currently violate the policy, including ${scenarioList.join(' and ')} scenarios. Determine appropriate remediation actions for each affected account (e.g., restricting additional access, sunsetting access upon loan payoff, or consolidating accounts).`);
+
+    // Step 3: Close loophole (if detected)
+    if (d.edgeCase) {
+      if (isSsnChange) {
+        steps.push(`Implement controls to block SSN updates that would result in multiple active ${prod} loans under the same SSN.`);
+      } else {
+        steps.push(`Implement controls to close the identified loophole or edge case that allows the policy to be circumvented.`);
+      }
+    }
+
+    // Step 4: Enhance enforcement
+    steps.push(`Enhance SSN-level enforcement controls to close any additional identified edge cases that allow multiple active ${prod} loans per SSN.`);
+
+    // Step 5: Validation
+    steps.push(`Conduct validation testing to confirm that marketing suppression logic, affected-population remediation actions, and SSN-level enforcement controls all operate as intended.`);
+  } else if (d.lending && d.identity && d.multiAccount) {
+    const prod = any(text, ['borrow']) ? 'Borrow' : 'lending product';
+    const isSsnChange = any(text, ['change ssn', 'change the ssn', 'ssn change', 'modify the ssn', 'update the ssn', 'update their ssn']);
+    const loopholeDesc = isSsnChange ? 'SSN-change' : 'identified';
+
+    // Step 1: Identify population
+    const scenarioList = [];
+    if (d.legacyPop) scenarioList.push('legacy');
+    if (isSsnChange) scenarioList.push('SSN-change');
+    if (!scenarioList.length) scenarioList.push('all known');
+    steps.push(`Identify and quantify the population of accounts with multiple active ${prod} loans tied to the same SSN, including ${scenarioList.join(' and ')} scenarios.`);
+
+    // Step 2: Preventative control (if loophole detected)
+    if (d.edgeCase) {
+      if (isSsnChange) {
+        steps.push(`Develop and implement a preventative control to block SSN updates that would result in multiple active ${prod} loans under the same SSN.`);
+      } else {
+        steps.push(`Develop and implement a preventative control to close the identified loophole and prevent new policy violations from occurring through that pathway.`);
+      }
+    }
+
+    // Step 3: Remediate affected population
+    if (d.legacyPop) {
+      steps.push(`Remediate legacy duplicate SSN-linked ${prod} accounts through policy-aligned corrective actions (e.g., restriction, consolidation, or other resolution).`);
+    } else {
+      steps.push(`Remediate the identified population of policy-violating accounts through appropriate corrective actions (e.g., restricting further access, consolidation, or other policy-aligned resolution).`);
+    }
+
+    // Step 4: Enhance enforcement
+    if (isSsnChange) {
+      steps.push(`Enhance SSN-level enforcement to revalidate ${prod} eligibility upon SSN change events.`);
+    } else {
+      steps.push(`Enhance SSN-level enforcement to revalidate ${prod} eligibility upon account lifecycle events that could create or reintroduce policy violations.`);
+    }
+
+    // Step 5: Ongoing monitoring
+    steps.push(`Implement ongoing monitoring to detect and prevent future duplicate ${prod} access at the SSN level.`);
+  } else if (d.lending && d.marketing && d.control && d.crossProduct) {
+    steps.push(`Update marketing invitation logic to align with cross-product eligibility controls and suppress Borrow offer notifications to customers with overdue loans within the Cash Lending ecosystem.`);
+    steps.push(`Validate that underwriting and loan origination controls remain effective and prevent ineligible customers from originating new Borrow loans.`);
+    steps.push(`Implement periodic review of marketing eligibility logic to ensure continued alignment with cross-product access controls.`);
+  } else if (d.lending && d.accountFreeze) {
+    steps.push(`Implement a process to identify Borrow customers with active loans whose accounts are temporarily frozen and suppress or waive late fees during the freeze period.`);
+    steps.push(`Develop a remediation plan to review and refund late fees assessed to customers whose accounts were frozen and subsequently unfrozen.`);
+    steps.push(`Enhance account freeze procedures to incorporate active loan servicing considerations and prevent future late fee assessments during temporary freezes.`);
+  } else if (d.marketing && d.control) {
+    steps.push(`Review and update the marketing or invitation logic to incorporate eligibility restrictions currently enforced upstream. Confirm system and pipeline owners and establish target update date.`);
+    steps.push(`Identify the population of customers who may have received ineligible communications and assess whether additional remediation or notification is required.`);
+    steps.push(`Enhance cross-system control alignment to ensure eligibility checks are consistently applied across marketing, origination, and servicing pipelines.`);
+    steps.push(`Conduct end-to-end validation testing to confirm that the updated logic operates as intended and no further ineligible communications are generated.`);
+  } else if (d.system && d.control) {
+    steps.push(`Investigate and document the specific system or configuration change that contributed to the control gap, with engineering ticket references attached.`);
+    steps.push(`Develop, test, and deploy a corrective fix in a controlled environment prior to production release.`);
+    steps.push(`Conduct post-deployment validation to confirm the fix is operating as intended and the control gap has been closed.`);
+  } else if (d.policy) {
+    steps.push(`Review and update the relevant policy or procedure to clarify requirements and prevent recurrence, with policy owner confirmed.`);
+    steps.push(`Communicate updated requirements to all affected staff and document acknowledgment or training completion.`);
+    steps.push(`Implement a monitoring or quality review process to detect future non-adherence.`);
+  } else {
+    steps.push(`Conduct a detailed root cause analysis to identify the specific failure point and confirm the full scope of impact, with DRI assigned.`);
+    steps.push(`Develop targeted remediation steps based on root cause findings and implement required process, system, or control changes.`);
+    steps.push(`Implement or strengthen monitoring controls to detect recurrence of the issue.`);
+  }
+
+  return steps;
+}
+
+function buildClosureEvidence(text, d, rating) {
+  const items = [];
+
+  // Domain-specific
+  if (d.lending && d.marketing && d.identity && d.multiAccount) {
+    const prod = any(text, ['borrow']) ? 'Borrow' : 'lending product';
+    const isSsnChange = any(text, ['change ssn', 'change the ssn', 'ssn change', 'modify the ssn', 'update the ssn', 'update their ssn']);
+
+    // Evidence 1 → MAP Step 1 (Marketing suppression)
+    items.push(`Documentation of marketing suppression logic update, including change ticket, deployment confirmation, and post-release monitoring results.`);
+
+    // Evidence 2 → MAP Step 2 (Identify affected population)
+    items.push(`Data extract identifying impacted accounts and documentation of remediation actions taken or planned for each.`);
+
+    // Evidence 3 → MAP Step 3 (Close loophole)
+    if (d.edgeCase) {
+      if (isSsnChange) {
+        items.push(`Engineering ticket(s) and deployment confirmation for SSN-change restriction control.`);
+      } else {
+        items.push(`Design documentation and deployment confirmation for controls implemented to close the identified loophole.`);
+      }
+    }
+
+    // Evidence 4 → MAP Step 4 (Enhance enforcement)
+    items.push(`Evidence of strengthened SSN-level enforcement controls addressing identified edge cases, including engineering ticket references.`);
+
+    // Evidence 5 → MAP Step 5 (Validation)
+    items.push(`End-to-end validation testing results confirming that marketing suppression logic, affected-population remediation actions, and SSN-level enforcement controls all operate as intended.`);
+  } else if (d.lending && d.identity && d.multiAccount) {
+    const prod = any(text, ['borrow']) ? 'Borrow' : 'lending product';
+    const isSsnChange = any(text, ['change ssn', 'change the ssn', 'ssn change', 'modify the ssn', 'update the ssn', 'update their ssn']);
+
+    // Evidence 1 → MAP Step 1 (Identify population)
+    items.push('Data extract identifying impacted accounts and documentation of remediation actions taken.');
+
+    // Evidence 2 → MAP Step 2 (Preventative control for loophole)
+    if (d.edgeCase) {
+      if (isSsnChange) {
+        items.push(`Engineering ticket(s) and deployment confirmation for SSN-change restriction control.`);
+      } else {
+        items.push(`Engineering ticket(s) and deployment confirmation for the control implemented to close the identified loophole.`);
+      }
+    }
+
+    // Evidence 3 → MAP Step 3 (Remediate affected population)
+    if (d.edgeCase && isSsnChange) {
+      items.push(`QA/UAT validation confirming SSN updates cannot create duplicate ${prod} access.`);
+    } else if (d.edgeCase) {
+      items.push(`QA/UAT validation confirming the loophole has been closed and can no longer be used to create policy violations.`);
+    } else {
+      items.push(`Documentation of corrective actions applied to the impacted population, including evidence of policy-aligned resolution for each account.`);
+    }
+
+    // Evidence 4 → MAP Step 4 (Enhance enforcement)
+    items.push(`Post-implementation validation confirming no new duplicate ${prod} accounts were created after control deployment.`);
+
+    // Evidence 5 → MAP Step 5 (Ongoing monitoring)
+    items.push('Documentation of ongoing monitoring process and assigned DRI ownership.');
+  } else if (d.lending && d.marketing && d.control && d.crossProduct) {
+    items.push('Documentation of marketing invitation logic update, including change ticket, deployment confirmation, and evidence that Borrow offer notifications are now suppressed for customers with overdue loans.');
+    items.push('QA/UAT validation results confirming underwriting and loan origination controls remain effective and prevent ineligible customers from originating new Borrow loans.');
+    items.push('Documented ownership and periodic review process to ensure continued alignment between marketing eligibility logic and cross-product access controls.');
+  } else if (d.lending && d.accountFreeze) {
+    items.push('Documentation of the process implemented to identify Borrow customers with active loans whose accounts are temporarily frozen, and evidence that late fees are suppressed or waived during the freeze period.');
+    items.push('Data extract identifying affected customers whose accounts were frozen and subsequently unfrozen, with evidence of late fee refunds or waivers provided.');
+    items.push('Documentation of enhanced account freeze procedures incorporating active loan servicing considerations, with validation confirming no future late fee assessments occur during temporary freezes.');
+  } else {
+    if (d.marketing) {
+      items.push(`Documentation confirming updates to marketing or invitation logic, including deployment confirmation and post-release monitoring results.`);
+      items.push(`Data extract or report identifying affected customers who received ineligible communications, and documentation of any remediation actions taken.`);
+    }
+    if (d.system || d.control) {
+      items.push('Evidence of system or configuration changes implemented, including design documentation, deployment records, and engineering ticket references.');
+    }
+    if (d.policy) {
+      items.push(`Updated policy or procedure documentation reflecting implemented changes, with effective date confirmed.`);
+      items.push(`Evidence of staff communication or training related to updated requirements, if applicable.`);
+    }
+    if (d.edgeCase) {
+      items.push(`Documentation confirming that identified edge cases have been addressed, including testing evidence covering relevant scenarios.`);
+    }
+    items.push(`Validation testing results demonstrating that the issue has been remediated and controls are operating as intended.`);
+  }
+
+  return items;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main orchestrator
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildOutput(text) {
+  const d       = detect(text);
+  const source  = detectSourceChannel(text);
+  const dateFound = extractDate(text);
+  const pop     = extractPopulation(text);
+  const rating  = suggestRating(text, d);
+  const timeline = mapTimeline(rating);
+
+  document.getElementById('content-classification').innerHTML = buildClassification(text, d, rating);
+  document.getElementById('content-desc').innerHTML   = buildDescription(text, d, source, dateFound, rating);
+  document.getElementById('content-impact').innerHTML = buildImpact(text, d, pop);
+  document.getElementById('content-root').innerHTML   = buildRootCause(text, d);
+  document.getElementById('content-map').innerHTML    = buildMAP(text, d, rating, timeline);
+
+  // Closure evidence list
+  const evItems = buildClosureEvidence(text, d, rating);
+  document.getElementById('content-close').innerHTML =
+    '<ul class="closure-list">' + evItems.map(i => `<li>${i}</li>`).join('') + '</ul>';
+
+  // Rating badge
+  const rDisplay = document.getElementById('rating-display');
+  if (rating) {
+    rDisplay.innerHTML = `Preliminary Rating: <span class="rating-badge ${ratingClass(rating)}">${rating}</span>`;
+  } else {
+    const missingDetails = buildMissingRatingDetails(text, d);
+    rDisplay.innerHTML = `Rating: <span class="rating-badge rating-tbd">Pending Assessment</span>`
+      + `<div class="pending-callout">`
+      + `<strong>Why is the rating pending?</strong> The description provided does not contain enough detail to suggest a preliminary risk rating. `
+      + `To enable an automated rating suggestion, consider adding the following to your description:`
+      + `<ul style="margin:8px 0 0 18px;">`
+      + missingDetails.map(d => `<li>${d}</li>`).join('')
+      + `</ul></div>`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI actions
+// ─────────────────────────────────────────────────────────────────────────────
+
+function generateWriteUp() {
+  const rawText = document.getElementById('situation-input').value.trim();
+  const errEl   = document.getElementById('error-msg');
+
+  errEl.classList.remove('active');
+  errEl.textContent = '';
+
+  if (rawText.length < 20) {
+    errEl.textContent = 'Please provide a more detailed description before generating the write-up.';
+    errEl.classList.add('active');
+    return;
+  }
+
+  const btn = document.getElementById('generate-btn');
+  btn.disabled = true;
+  document.getElementById('loader').classList.add('active');
+  document.getElementById('output-area').style.display = 'none';
+  document.getElementById('copy-btn').style.display = 'none';
+
+  setTimeout(() => {
+    try {
+      buildOutput(rawText);
+      document.getElementById('output-area').style.display = 'block';
+      document.getElementById('copy-btn').style.display = 'inline-block';
+      document.getElementById('output-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch(e) {
+      errEl.textContent = 'An unexpected error occurred while generating the write-up. Please try again.';
+      errEl.classList.add('active');
+      console.error(e);
+    }
+    btn.disabled = false;
+    document.getElementById('loader').classList.remove('active');
+  }, 600);
+}
+
+function clearAll() {
+  document.getElementById('situation-input').value = '';
+  document.getElementById('output-area').style.display = 'none';
+  document.getElementById('copy-btn').style.display = 'none';
+  document.getElementById('error-msg').classList.remove('active');
+  document.getElementById('error-msg').textContent = '';
+  document.getElementById('generate-btn').disabled = false;
+  document.getElementById('loader').classList.remove('active');
+}
+
+function copyOutput() {
+  const sections = document.querySelectorAll('.section-block');
+  let text = 'DRAFT ISSUE WRITE-UP\n' + '='.repeat(50) + '\n\n';
+
+  sections.forEach(sec => {
+    const h2     = sec.querySelector('h2');
+    const content = sec.querySelector('.section-content');
+    if (h2 && content) {
+      const icon    = h2.querySelector('.section-icon');
+      const heading = h2.textContent.replace(icon ? icon.textContent : '', '').trim();
+      text += heading.toUpperCase() + '\n' + '-'.repeat(40) + '\n';
+      text += content.innerText + '\n\n';
+    }
+  });
+
+  text += '\n' + '='.repeat(50) + '\nDISCLAIMER\n';
+  text += document.querySelector('.disclaimer-card').innerText;
+
+  const btn = document.getElementById('copy-btn');
+  const reset = () => {
+    btn.textContent = '⎘ Copy to Clipboard';
+    btn.classList.remove('copied');
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = '✓ Copied!';
+      btn.classList.add('copied');
+      setTimeout(reset, 2200);
+    }).catch(() => fallbackCopy(text, btn, reset));
+  } else {
+    fallbackCopy(text, btn, reset);
+  }
+}
+
+function fallbackCopy(text, btn, reset) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+  btn.textContent = '✓ Copied!';
+  btn.classList.add('copied');
+  setTimeout(reset, 2200);
+}
+
+// Ctrl+Enter shortcut
+document.getElementById('situation-input').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') generateWriteUp();
+});
+</script>
+
+</body>
+</html>
